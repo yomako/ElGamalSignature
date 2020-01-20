@@ -13,10 +13,11 @@ def construct_prime(size=10):
         e_set = np.array(e_set)
         n = np.prod(q_set**e_set)+1
         if miller_rabin(n):
-            return n
+            return n, q_set
 
 
 def miller_rabin(n, k=40):
+    #besed on https://gist.github.com/bnlucas/5857478
     n = int(n)
     if n <= 1:
         raise ValueError("Prime number must be greater or equal 2")
@@ -43,3 +44,12 @@ def miller_rabin(n, k=40):
         else:
             return False
     return True
+
+
+def find_generator(n, q_set):
+    #besed on https://math.stackexchange.com/questions/124408/finding-a-primitive-root-of-a-prime-number
+    while True:
+        g = random.randrange(2, n - 1)
+        res = np.array(list(map(lambda q: pow(g, int((n-1)//q), int(n)) == 1, list(q_set))))
+        if np.sum(res) == 0:
+            return g
