@@ -1,6 +1,7 @@
 import numpy as np
 import random
-from hashlib import sha256, sha384
+from hashlib import sha256
+import pickle
 
 
 class PrivateKey:
@@ -112,15 +113,12 @@ def encode(public_key, message):
     bx = pow(public_key.b, x, public_key.p)
     b1 = public_key.p + bx
     cryptogram = [pow(public_key.g, x, public_key.p), (message*b1) % public_key.p]
-
-    r = get_coprime_integer(public_key.p)
-    y = pow(public_key.g, r, public_key.p)
-    s = None
     return cryptogram
 
 
 def decode(cryptogram, private_key):
-    return cryptogram[1]*get_inverse_element(pow(cryptogram[0], private_key.k, private_key.p), private_key.p) % private_key.p
+    return cryptogram[1]*get_inverse_element(pow(cryptogram[0],
+                                                 private_key.k, private_key.p), private_key.p) % private_key.p
 
 
 def egcd(a, b):
@@ -137,3 +135,39 @@ def get_inverse_element(a, m):
         raise Exception('modular inverse does not exist')
     else:
         return x % m
+
+
+def generate_signature(private_key, message):
+    r = get_coprime_integer(private_key.p)
+    y = pow(private_key.g, r, private_key.p)
+    hm = int(sha256(message.encode()).hexdigest(), 16)
+    s = (hm - private_key.k*y)*get_inverse_element(r, private_key.p-1) % (private_key.p-1)
+    return tuple([y, s])
+
+
+def verify_signature(public_key, message, signature):
+    y = signature[0]
+    s = signature[1]
+    hm = int(sha256(message.encode()).hexdigest(), 16)
+    x1 = (pow(public_key.b, y, public_key.p) * pow(y, s, public_key.p)) % public_key.p
+    x2 = pow(public_key.g, hm, public_key.p)
+    if x1 == x2:
+        return True
+    else:
+        return False
+
+
+def encode_string(public_key, message, filename):
+    cryptograms = []
+    for m in message:
+        cryptograms.append(encode(public_key, ord(m)))
+    pickle.dump(cryptograms, open(filename, 'wb'))
+
+
+def decode_string(private_key, filename):
+    cryptograms = pickle.load(open(filename, 'rb'))
+    string = []
+    for cryptogram in cryptograms:
+        string.append(chr(decode(cryptogram, private_key)))
+    message = "".join(string)
+    return message

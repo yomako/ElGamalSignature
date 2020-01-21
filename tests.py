@@ -7,8 +7,8 @@ from elgamal import (
     find_generator,
     get_coprime_integer,
     generate_keys,
-    PublicKey,
-    PrivateKey,
+    encode,
+    decode,
 )
 
 
@@ -59,3 +59,10 @@ def test_encode(p, q_set):
         bx = pow(public_key.b, x, public_key.p)
         b1 = public_key.p + bx
         assert (message*b1) % public_key.p == (message*bx) % public_key.p
+
+
+def test_encode_decode():
+    private_key, public_key = generate_keys()
+    cryptogram = encode(public_key, ord('m'))
+    message = decode(cryptogram, private_key)
+    assert message == ord('m')
