@@ -1,5 +1,39 @@
 import numpy as np
 import random
+from hashlib import sha256, sha384
+
+
+class PrivateKey:
+    def __init__(self, g, b, p, k):
+        self.g = g # gene
+        self.b = b
+        self.p = p
+        self.k = k
+
+    def __eq__(self, other):
+        if not isinstance(other, PrivateKey):
+            return NotImplemented
+        print(self.g == other.g, self.b == other.b, self.p == other.p, self.k == other.k)
+        return self.g == other.g and self.b == other.b and self.p == other.p and self.k == other.k
+
+    def show(self):
+        print('g={}, b={}, p={}, k={}'.format(self.g, self.b, self.p, self.k))
+
+
+class PublicKey:
+    def __init__(self, g, b, p):
+        self.g = g
+        self.b = b
+        self.p = p
+
+    def __eq__(self, other):
+        if not isinstance(other, PublicKey):
+            return NotImplemented
+        print(self.g == other.g, self.b == other.b, self.p == other.p)
+        return self.g == other.g and self.b == other.b and self.p == other.p
+
+    def show(self):
+        print('g={}, b={}, p={}'.format(self.g, self.b, self.p))
 
 
 def construct_prime(size=10):
@@ -13,11 +47,11 @@ def construct_prime(size=10):
         e_set = np.array(e_set)
         n = np.prod(q_set**e_set)+1
         if miller_rabin(n):
-            return n, q_set
+            return int(n), q_set
 
 
 def miller_rabin(n, k=40):
-    #besed on https://gist.github.com/bnlucas/5857478
+    # based on https://gist.github.com/bnlucas/5857478
     n = int(n)
     if n <= 1:
         raise ValueError("Prime number must be greater or equal 2")
@@ -47,9 +81,59 @@ def miller_rabin(n, k=40):
 
 
 def find_generator(n, q_set):
-    #besed on https://math.stackexchange.com/questions/124408/finding-a-primitive-root-of-a-prime-number
+    # based on https://math.stackexchange.com/questions/124408/finding-a-primitive-root-of-a-prime-number
     while True:
         g = random.randrange(2, n - 1)
         res = np.array(list(map(lambda q: pow(g, int((n-1)//q), int(n)) == 1, list(q_set))))
         if np.sum(res) == 0:
             return g
+
+
+def generate_keys(p=None, q_set=None):
+    if p is None and q_set is None:
+        p, q_set = construct_prime()
+    g = find_generator(p, q_set)
+    k = random.randrange(2, p - 1)
+    b = pow(g, k, p)
+    private_key = PrivateKey(g, b, p, k)
+    public_key = PublicKey(g, b, p)
+    return private_key, public_key
+
+
+def get_coprime_integer(p):
+    while True:
+        x = random.randrange(2, p - 1)
+        if np.gcd(x, p - 1) == 1:
+            return x
+
+
+def encode(public_key, message):
+    x = get_coprime_integer(public_key.p)
+    bx = pow(public_key.b, x, public_key.p)
+    b1 = public_key.p + bx
+    cryptogram = [pow(public_key.g, x, public_key.p), (message*b1) % public_key.p]
+
+    r = get_coprime_integer(public_key.p)
+    y = pow(public_key.g, r, public_key.p)
+    s = None
+    return cryptogram
+
+
+def decode(cryptogram, private_key):
+    return cryptogram[1]*get_inverse_element(pow(cryptogram[0], private_key.k, private_key.p), private_key.p) % private_key.p
+
+
+def egcd(a, b):
+    if a == 0:
+        return b, 0, 1
+    else:
+        g, y, x = egcd(b % a, a)
+        return g, x - (b // a) * y, y
+
+
+def get_inverse_element(a, m):
+    g, x, y = egcd(a, m)
+    if g != 1:
+        raise Exception('modular inverse does not exist')
+    else:
+        return x % m
