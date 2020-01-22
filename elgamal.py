@@ -1,12 +1,19 @@
-import numpy as np
-import random
 from hashlib import sha256
 import pickle
 
+from math_functions import *
+
 
 class PrivateKey:
+    """ Private key - keep in secret """
     def __init__(self, g, b, p, k):
-        self.g = g # gene
+        """
+        :param g: generator
+        :param b: g^k mod(p)
+        :param p: prime number
+        :param k: secret number from range 1 < k < p, co-prime to p
+        """
+        self.g = g
         self.b = b
         self.p = p
         self.k = k
@@ -22,7 +29,13 @@ class PrivateKey:
 
 
 class PublicKey:
+    """ Public key - spread """
     def __init__(self, g, b, p):
+        """
+        :param g: generator
+        :param b: g^k mod(p)
+        :param p: prime number
+        """
         self.g = g
         self.b = b
         self.p = p
@@ -37,60 +50,17 @@ class PublicKey:
         print('g={}, b={}, p={}'.format(self.g, self.b, self.p))
 
 
-def construct_prime(size=10):
-    while True:
-        primes = np.array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31,
-                           37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97])
-        es = np.append(np.random.randint(len(primes), size=size), 0)
-        q_set = primes[list(set(es))]
-        e_set = list(map(lambda q: np.sum(q_set == q), list(q_set)))
-        q_set = np.array(q_set)
-        e_set = np.array(e_set)
-        n = np.prod(q_set**e_set)+1
-        if miller_rabin(n):
-            return int(n), q_set
-
-
-def miller_rabin(n, k=40):
-    # based on https://gist.github.com/bnlucas/5857478
-    n = int(n)
-    if n <= 1:
-        raise ValueError("Prime number must be greater or equal 2")
-
-    if n == 2 or n == 3:
-        return True
-
-    if n % 2 == 0:
-        return False
-
-    r, s = 0, n - 1
-    while s % 2 == 0:
-        r += 1
-        s //= 2
-    for _ in range(k):
-        a = random.randrange(2, n - 1)
-        x = pow(a, s, n)
-        if x == 1 or x == n - 1:
-            continue
-        for _ in range(r - 1):
-            x = pow(x, 2, n)
-            if x == n - 1:
-                break
-        else:
-            return False
-    return True
-
-
-def find_generator(n, q_set):
-    # based on https://math.stackexchange.com/questions/124408/finding-a-primitive-root-of-a-prime-number
-    while True:
-        g = random.randrange(2, n - 1)
-        res = np.array(list(map(lambda q: pow(g, int((n-1)//q), int(n)) == 1, list(q_set))))
-        if np.sum(res) == 0:
-            return g
-
-
 def generate_keys(p=None, q_set=None):
+    """
+    Generates pair: private and public keys.
+
+    :param p: prime number
+    :param q_set: p-1 factorization
+    :return:
+    private key (PrivateKey):
+    public key (PublicKey):
+    """
+
     if p is None and q_set is None:
         p, q_set = construct_prime()
     g = find_generator(p, q_set)
@@ -101,14 +71,17 @@ def generate_keys(p=None, q_set=None):
     return private_key, public_key
 
 
-def get_coprime_integer(p):
-    while True:
-        x = random.randrange(2, p - 1)
-        if np.gcd(x, p - 1) == 1:
-            return x
-
-
 def encode(public_key, message):
+    """
+    Encodes message using public key. The cryptogram is a pair of numbers: [g^k mod(p), mb^x mod(p)] where x is
+    random number co-prime to p.
+
+    :param public_key:
+    :param message: number to encode
+    :return:
+    cryptogram: pair of numbers
+    """
+
     x = get_coprime_integer(public_key.p)
     bx = pow(public_key.b, x, public_key.p)
     b1 = public_key.p + bx
@@ -117,35 +90,52 @@ def encode(public_key, message):
 
 
 def decode(cryptogram, private_key):
-    return cryptogram[1]*get_inverse_element(pow(cryptogram[0],
-                                                 private_key.k, private_key.p), private_key.p) % private_key.p
+    """
+    Encodes message using public key. The cryptogram is a pair of numbers: [g^k mod(p), mb^x mod(p)] where x is
+    random number co-prime to p.
 
+    :param private_key:
+    :param cryptogram: pair of numbers to decode
+    :return:
+    decrypted_message: decrypted number
+    """
 
-def egcd(a, b):
-    if a == 0:
-        return b, 0, 1
-    else:
-        g, y, x = egcd(b % a, a)
-        return g, x - (b // a) * y, y
-
-
-def get_inverse_element(a, m):
-    g, x, y = egcd(a, m)
-    if g != 1:
-        raise Exception('modular inverse does not exist')
-    else:
-        return x % m
+    decrypted_message = cryptogram[1] * get_inverse_element(pow(cryptogram[0], private_key.k, private_key.p),
+                                                            private_key.p) % private_key.p
+    return decrypted_message
 
 
 def generate_signature(private_key, message):
+    """
+    Generates ElGamal signature - pair of numbers [g^r mod(p), (H(m)-ky)r^(-1) mod(p-1)], where r is random number
+    co-prime to p, y=g^r mod(p), H is hash function (in this case sha256) and m is integer form of hashing result.
+
+    :param private_key:
+    :param message: string with message
+    :return:
+    signature: ElGamal signature of message
+    """
+
     r = get_coprime_integer(private_key.p)
     y = pow(private_key.g, r, private_key.p)
     hm = int(sha256(message.encode()).hexdigest(), 16)
     s = (hm - private_key.k*y)*get_inverse_element(r, private_key.p-1) % (private_key.p-1)
-    return tuple([y, s])
+    signature = tuple([y, s])
+    return signature
 
 
 def verify_signature(public_key, message, signature):
+    """
+    Verifies ElGamal signature of message. If b^y*y^s mod(p) = H(m): signature is valid.
+
+    :param public_key:
+    :param message: string with message
+    :param signature: ElGamal signature, pair of numbers
+    :return:
+    True if signature is valid
+    False if not
+    """
+
     y = signature[0]
     s = signature[1]
     hm = int(sha256(message.encode()).hexdigest(), 16)
@@ -158,6 +148,15 @@ def verify_signature(public_key, message, signature):
 
 
 def encode_string(public_key, message, filename):
+    """
+    Encodes string with message. Each character is encoded separately. Result - list of cryptograms is saved in pickle
+    with given filename.
+
+    :param public_key:
+    :param message: string with message
+    :param filename: name of file where results will be stored
+    """
+
     cryptograms = []
     for m in message:
         cryptograms.append(encode(public_key, ord(m)))
@@ -165,6 +164,15 @@ def encode_string(public_key, message, filename):
 
 
 def decode_string(private_key, filename):
+    """
+    Decodes list of cryptograms from filename.p pickle.
+
+    :param private_key:
+    :param filename: name of file where results are stored
+    :return:
+    message (string): result of decoding list of cryptograms
+    """
+
     cryptograms = pickle.load(open(filename, 'rb'))
     string = []
     for cryptogram in cryptograms:
