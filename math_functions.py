@@ -48,7 +48,7 @@ def get_coprime_integer(p):
 
     while True:
         x = random.randrange(2, p - 1)
-        if np.gcd(x, p - 1) == 1:
+        if np.gcd(x, p) == 1:
             return x
 
 
