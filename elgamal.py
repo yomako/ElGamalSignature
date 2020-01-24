@@ -11,7 +11,7 @@ class PrivateKey:
         :param g: generator
         :param b: g^k mod(p)
         :param p: prime number
-        :param k: secret number from range 1 < k < p, co-prime to p
+        :param k: secret number from range 1 < k < p
         """
         self.g = g
         self.b = b
@@ -74,7 +74,7 @@ def generate_keys(p=None, q_set=None):
 def encode(public_key, message):
     """
     Encodes message using public key. The cryptogram is a pair of numbers: [g^k mod(p), mb^x mod(p)] where x is
-    random number co-prime to p.
+    random number co-prime to p-1.
 
     :param public_key:
     :param message: number to encode
@@ -82,7 +82,7 @@ def encode(public_key, message):
     cryptogram: pair of numbers
     """
 
-    x = get_coprime_integer(public_key.p)
+    x = get_coprime_integer(public_key.p - 1)
     bx = pow(public_key.b, x, public_key.p)
     b1 = public_key.p + bx
     cryptogram = [pow(public_key.g, x, public_key.p), (message*b1) % public_key.p]
@@ -92,7 +92,7 @@ def encode(public_key, message):
 def decode(cryptogram, private_key):
     """
     Encodes message using public key. The cryptogram is a pair of numbers: [g^k mod(p), mb^x mod(p)] where x is
-    random number co-prime to p.
+    random number co-prime to p-1.
 
     :param private_key:
     :param cryptogram: pair of numbers to decode
@@ -108,7 +108,7 @@ def decode(cryptogram, private_key):
 def generate_signature(private_key, message):
     """
     Generates ElGamal signature - pair of numbers [g^r mod(p), (H(m)-ky)r^(-1) mod(p-1)], where r is random number
-    co-prime to p, y=g^r mod(p), H is hash function (in this case sha256) and m is integer form of hashing result.
+    co-prime to p-1, y=g^r mod(p), H is hash function (in this case sha256) and m is integer form of hashing result.
 
     :param private_key:
     :param message: string with message
@@ -116,7 +116,7 @@ def generate_signature(private_key, message):
     signature: ElGamal signature of message
     """
 
-    r = get_coprime_integer(private_key.p)
+    r = get_coprime_integer(private_key.p - 1)
     y = pow(private_key.g, r, private_key.p)
     hm = int(sha256(message.encode()).hexdigest(), 16)
     s = (hm - private_key.k*y)*get_inverse_element(r, private_key.p-1) % (private_key.p-1)
