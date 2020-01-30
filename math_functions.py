@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import math
 
 
 def egcd(a, b):
@@ -48,7 +49,7 @@ def get_coprime_integer(p):
 
     while True:
         x = random.randrange(2, p - 1)
-        if np.gcd(x, p) == 1:
+        if math.gcd(x, p) == 1:
             return x
 
 
@@ -66,32 +67,36 @@ def find_generator(n, q_set):
 
     while True:
         g = random.randrange(2, n - 1)
-        res = np.array(list(map(lambda q: pow(g, int((n-1)//q), int(n)) == 1, list(q_set))))
-        if np.sum(res) == 0:
+        res = list(map(lambda q: pow(g, int((n-1)//q), int(n)) == 1, list(q_set)))
+        if sum(res) == 0:
             return g
 
 
-def construct_prime(size=10):
+def construct_prime(size=100, limit=100000):
     """
     Returns prime number p with known p-1 factorization in accordance with the formula:
     p = sum_i(q_i^e_i) + 1
     where q_i is factor (prime number from constructional set), e_i factor degree
 
     :param size: defines how many prime numbers construct target prime number
+    :param limit: maximal prime number from base cannot be greater than limit
     :return:
     p: prime number
     q_set: p-1 factorization
     """
 
+    primes = np.array(find_primes(limit))
+
     while True:
-        primes = np.array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31,
-                           37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97])
         es = np.append(np.random.randint(len(primes), size=size), 0)
         q_set = primes[list(set(es))]
-        e_set = list(map(lambda q: np.sum(q_set == q), list(q_set)))
-        q_set = np.array(q_set)
-        e_set = np.array(e_set)
-        p = np.prod(q_set**e_set)+1
+        e_set = list(map(lambda qs: np.sum(q_set == qs), list(q_set)))
+        q_set = list(map(int, q_set))
+        e_set = list(map(int, e_set))
+        p = 1
+        for ii, q in enumerate(q_set):
+            p *= pow(q, e_set[ii])
+        p += 1
         if miller_rabin(p):
             return int(p), q_set
 
@@ -133,3 +138,26 @@ def miller_rabin(n, k=40):
         else:
             return False
     return True
+
+
+def find_primes(limit):
+    """
+    Finds prime numbers in range from 2 to limit.
+
+    :param limit: maximal prime number from base cannot be greater than limit
+    :return:
+    primes: prime numbers in range
+    """
+
+    if not float(limit).is_integer():
+        raise ValueError("Limit must be integer greater or equal 2.")
+    if limit <= 1:
+        raise ValueError("Limit must be greater or equal 2. Lower numbers cannot be prime.")
+    primes = []
+    nums = np.arange(2, limit+1)
+    base = np.copy(nums)
+    while base.size:
+        primes.append(base[0])
+        base = base[np.remainder(base, base[0]).astype(np.bool)]
+
+    return primes

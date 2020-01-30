@@ -2,6 +2,8 @@ from elgamal import *
 
 
 private_key, public_key = generate_keys()
+private_key.show()
+print("p has {} digits".format(math.floor(math.log10(private_key.p))))
 message1 = "It's me. Trust me."
 signature = generate_signature(private_key=private_key, message=message1)
 if verify_signature(public_key=public_key, message=message1, signature=signature):

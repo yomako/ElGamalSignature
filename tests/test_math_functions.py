@@ -1,14 +1,11 @@
 import pytest
 import numpy as np
-import random
-from elgamal import (
+from math_functions import (
     miller_rabin,
     construct_prime,
     find_generator,
+    find_primes,
     get_coprime_integer,
-    generate_keys,
-    encode,
-    decode,
 )
 
 
@@ -46,23 +43,28 @@ def test_find_generator(prime, q_set):
 
 
 @pytest.mark.parametrize(
-    'p, q_set',
+    'limit, expected',
     [
-        pytest.param(229, [2, 3, 19]),
+        pytest.param(2, [2]),
+        pytest.param(100, [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31,
+                           37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]),
     ],
 )
-def test_encode(p, q_set):
-    for __ in range(100):
-        _, public_key = generate_keys(p=p, q_set=q_set)
-        x = get_coprime_integer(public_key.p)
-        message = random.randint(1, 1000)
-        bx = pow(public_key.b, x, public_key.p)
-        b1 = public_key.p + bx
-        assert (message*b1) % public_key.p == (message*bx) % public_key.p
+def test_generate_primes(limit, expected):
+    assert find_primes(limit) == expected
 
 
-def test_encode_decode():
-    private_key, public_key = generate_keys()
-    cryptogram = encode(public_key, ord('m'))
-    message = decode(cryptogram, private_key)
-    assert message == ord('m')
+@pytest.mark.parametrize(
+    'limit',
+    [
+        pytest.param(1.5),
+        pytest.param(-1),
+    ],
+)
+def test_generate_primes_value(limit):
+    with pytest.raises(ValueError):
+        find_primes(limit)
+
+
+def test_get_coprime_integer():
+    assert get_coprime_integer(int(1e100)) > 1

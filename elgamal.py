@@ -25,7 +25,8 @@ class PrivateKey:
         return self.g == other.g and self.b == other.b and self.p == other.p and self.k == other.k
 
     def show(self):
-        print('g={}, b={}, p={}, k={}'.format(self.g, self.b, self.p, self.k))
+        print("Private key parameters:")
+        print('g={}\nb={}\np={}\nk={}'.format(self.g, self.b, self.p, self.k))
 
 
 class PublicKey:
@@ -47,7 +48,8 @@ class PublicKey:
         return self.g == other.g and self.b == other.b and self.p == other.p
 
     def show(self):
-        print('g={}, b={}, p={}'.format(self.g, self.b, self.p))
+        print("Public key parameters:")
+        print('g={}\nb={}\np={}'.format(self.g, self.b, self.p))
 
 
 def generate_keys(p=None, q_set=None):
